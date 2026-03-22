@@ -1,8 +1,9 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
 
-import {autoBounceGarageBand, BounceQueueStatus, checkGarageBandAvailable, isGarageBandProject} from '../core/index';
+import {BounceQueueStatus, createSlingshotClient, InvokeFn, isGarageBandProject} from '../core/index';
 
 type UseGarageBandAutoBounceQueueArgs = {
+    invoke: InvokeFn;
     onProjectBounced?: (projectPath: string, bouncePath: string) => Promise<void> | void;
 };
 
@@ -18,7 +19,9 @@ const formatUnknownError = (err: unknown) => {
     return String(err);
 };
 
-export const useGarageBandAutoBounceQueue = (args?: UseGarageBandAutoBounceQueueArgs) => {
+export const useGarageBandAutoBounceQueue = (args: UseGarageBandAutoBounceQueueArgs) => {
+    const client = useMemo(() => createSlingshotClient(args.invoke), [args.invoke]);
+
     const [garageBandAvailable, setGarageBandAvailable] = useState<boolean | null>(null);
     const [bouncingProjects, setBouncingProjects] = useState<Set<string>>(new Set());
 
@@ -28,10 +31,10 @@ export const useGarageBandAutoBounceQueue = (args?: UseGarageBandAutoBounceQueue
     const [queueErrorByPath, setQueueErrorByPath] = useState<Record<string, string>>({});
 
     useEffect(() => {
-        checkGarageBandAvailable()
+        client.checkGarageBandAvailable()
             .then(setGarageBandAvailable)
             .catch(() => setGarageBandAvailable(false));
-    }, []);
+    }, [client]);
 
     const runNow = useCallback(async (projectPath: string, opts?: RunNowOptions): Promise<{bouncePath: string}> => {
         if (!isGarageBandProject(projectPath)) {
@@ -51,7 +54,7 @@ export const useGarageBandAutoBounceQueue = (args?: UseGarageBandAutoBounceQueue
         }
 
         try {
-            const result = await autoBounceGarageBand({
+            const result = await client.autoBounceGarageBand({
                 project_path: projectPath,
                 output_format: 'aiff',
             });
@@ -60,7 +63,7 @@ export const useGarageBandAutoBounceQueue = (args?: UseGarageBandAutoBounceQueue
                 throw new Error(result.error_message || 'Auto bounce failed');
             }
 
-            await args?.onProjectBounced?.(projectPath, result.bounce_path);
+            await args.onProjectBounced?.(projectPath, result.bounce_path);
 
             if (opts?.fromQueue) {
                 setQueueStatusByPath(prev => ({
@@ -96,7 +99,7 @@ export const useGarageBandAutoBounceQueue = (args?: UseGarageBandAutoBounceQueue
                 return next;
             });
         }
-    }, [args, garageBandAvailable]);
+    }, [args, client, garageBandAvailable]);
 
     const enqueue = useCallback((projectPaths: string[]) => {
         const uniqueCandidates = Array.from(new Set(projectPaths));
