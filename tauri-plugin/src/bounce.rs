@@ -168,10 +168,15 @@ async fn execute_garageband_bounce(options: &BounceOptions) -> Result<String, St
 #[cfg(target_os = "macos")]
 fn get_bounce_script_path() -> Result<PathBuf, String> {
     use std::io::Write;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
 
     const SCRIPT_CONTENT: &str = include_str!("../scripts/garageband_bounce.applescript");
 
-    let temp_path = std::env::temp_dir().join("slingshot_garageband_bounce.applescript");
+    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let filename = format!("slingshot_garageband_bounce_{}_{}.applescript", std::process::id(), id);
+    let temp_path = std::env::temp_dir().join(filename);
 
     let mut file = std::fs::File::create(&temp_path)
         .map_err(|e| format!("Failed to create temp script file: {}", e))?;
