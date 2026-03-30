@@ -1,0 +1,17 @@
+{
+    "name": "@jamtools/slingshot",
+    "version": "0.1.0",
+    "exports": {
+        "./core": {
+            "types": "./core/index.ts",
+            "default": "./core/index.ts"
+        },
+        "./react": {
+            "types": "./react/index.ts",
+            "default": "./react/index.ts"
+        }
+    },
+    "peerDependencies": {
+        "react": ">=18"
+    }
+}
